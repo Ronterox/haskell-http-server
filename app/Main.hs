@@ -3,34 +3,39 @@
 module Main (main) where
 
 import Control.Monad (forever)
-import qualified Data.ByteString.Char8 as BC
+import Data.ByteString.Char8 (pack, putStrLn)
 import Network.Socket
+import Network.Socket.ByteString (recv, send)
 import System.IO (BufferMode (..), hSetBuffering, stdout)
+import Prelude hiding (putStrLn)
 
 main :: IO ()
 main = do
     hSetBuffering stdout LineBuffering
 
-    -- You can use print statements as follows for debugging, they'll be visible when running tests.
-    BC.putStrLn "Logs from your program will appear here"
+    putStrLn "Logs from your program will appear here"
 
-    -- Uncomment this block to pass first stage
     let host = "127.0.0.1"
         port = "4221"
 
-    BC.putStrLn $ "Listening on " <> BC.pack host <> ":" <> BC.pack port
+    putStrLn $ "Listening on http://" <> pack host <> ":" <> pack port
 
     -- Get address information for the given host and port
     addrInfo <- getAddrInfo Nothing (Just host) (Just port)
 
     serverSocket <- socket (addrFamily $ head addrInfo) Stream defaultProtocol
+    setSocketOption serverSocket ReuseAddr 1
+
     bind serverSocket $ addrAddress $ head addrInfo
     listen serverSocket 5
 
     -- Accept connections and handle them forever
     forever $ do
         (clientSocket, clientAddr) <- accept serverSocket
-        BC.putStrLn $ "Accepted connection from " <> BC.pack (show clientAddr) <> "."
+        putStrLn $ "Accepted connection from " <> pack (show clientAddr) <> "."
         -- Handle the clientSocket as needed...
+
+        _ <- recv clientSocket 4096
+        _ <- send clientSocket "HTTP/1.1 200 OK\r\n\r\n"
 
         close clientSocket
