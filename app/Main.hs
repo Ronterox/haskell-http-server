@@ -14,7 +14,7 @@ getPath :: ByteString -> ByteString
 getPath req = words req !! 1
 
 getField :: ByteString -> ByteString -> ByteString
-getField field content = fromMaybe "" $ stripPrefix field content
+getField field content = fromMaybe "" $ strip $ stripPrefix field content
 
 echo :: ByteString -> ByteString
 echo path = getField "/echo/" path
