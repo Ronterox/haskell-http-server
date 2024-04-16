@@ -5,8 +5,8 @@
 # failures.
 #
 # DON'T EDIT THIS!
-# resolver: lts-21.25 # Mine versio
-resolver: lts-21.11 # Codecrafters version
+resolver: lts-21.25 # Mine versio
+# resolver: lts-21.11 # Codecrafters version
 
 packages:
   - .
