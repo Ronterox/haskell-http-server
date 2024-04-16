@@ -19,6 +19,9 @@ echo path = fromMaybe "" $ stripPrefix "/echo/" path
 userAgent :: ByteString -> ByteString
 userAgent req = lines (fromMaybe "" $ stripPrefix "User-Agent: " req) !! 1
 
+contentLength :: ByteString -> ByteString
+contentLength body = pack $ show $ length body
+
 main :: IO ()
 main = do
     hSetBuffering stdout LineBuffering
@@ -47,12 +50,19 @@ main = do
 
         req <- recv clientSocket 4096
         let path = getPath req
+            okmsg = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: "
+            notFound = "HTTP/1.1 404 Not Found\r\n\r\n"
+            eof = "\r\n\r\n"
 
         let msg = case path of
-                _ | "/echo" `isPrefixOf` path -> "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n" <> echo path <> "\r\n\r\n"
-                "/user-agent" -> "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " <> pack (show $ length $ userAgent req) <> "\r\n\r\n" <> userAgent req <> "\r\n\r\n"
-                "/" -> "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello, World!\r\n\r\n"
-                _ -> "HTTP/1.1 404 Not Found\r\n\r\n"
+                _ | "/echo" `isPrefixOf` path -> okmsg <> contentLength body <> eof <> body <> eof
+                  where
+                    body = echo path
+                "/user-agent" -> okmsg <> contentLength agent <> eof <> agent <> eof
+                  where
+                    agent = userAgent req
+                "/" -> okmsg <> "13\r\n\r\nHello, World!\r\n\r\n"
+                _ -> notFound
 
         print $ path <> " " <> msg
         _ <- send clientSocket msg
