@@ -6,7 +6,7 @@
 #
 # DON'T EDIT THIS!
 # resolver: lts-21.25
-resolver: lts-21.17
+resolver: lts-21.11
 
 packages:
   - .
