@@ -34,6 +34,9 @@ getOk contentType content = "HTTP/1.1 200 OK\r\nContent-Type: " <> contentType <
 getField :: Field -> Content -> Content
 getField field content = strip $ fromMaybe "" $ stripPrefix field content
 
+getHttpContent :: Request -> Content
+getHttpContent = last . lines
+
 echo :: UrlPath -> Content
 echo = getField "/echo/"
 
@@ -53,10 +56,19 @@ handleClient clientSocket directory files = do
     req <- recv clientSocket 4096
 
     let path = getPath req
+        method = head $ words req
+
     msg <- case path of
-        _ | "/files" `isPrefixOf` path && directory ++ filename `elem` files -> do
-            body <- readFile $ directory <> filename
-            return $ getOk "application/octet-stream" $ pack body
+        _ | "/files" `isPrefixOf` path && (directory ++ filename `elem` files || method == "POST") -> do
+            if method == "GET"
+                then do
+                    body <- readFile $ directory <> filename
+                    return $ getOk "application/octet-stream" $ pack body
+                else do
+                    print $ "Writing file: " <> directory <> filename
+                    print $ getHttpContent req
+                    writeFile (directory <> filename) $ unpack $ getHttpContent req
+                    return "HTTP/1.1 201 Created\r\n\r\n"
           where
             filename = unpack $ getField "/files/" path
         _ | "/echo" `isPrefixOf` path -> return $ getOk "text/plain" $ echo path
