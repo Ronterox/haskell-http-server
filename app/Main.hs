@@ -3,17 +3,18 @@
 module Main (main) where
 
 import Control.Monad (forever)
-import Data.ByteString.Char8 (ByteString, pack, putStrLn, unpack)
+import Data.ByteString.Char8 (ByteString, isPrefixOf, pack, putStrLn, stripPrefix, words)
+import Data.Maybe (fromMaybe)
 import Network.Socket
 import Network.Socket.ByteString (recv, send)
 import System.IO (BufferMode (..), hSetBuffering, stdout)
-import Prelude hiding (putStrLn)
+import Prelude hiding (putStrLn, words)
 
-parseReq :: ByteString -> [String]
-parseReq req = words $ unpack req
+getPath :: ByteString -> ByteString
+getPath req = words req !! 1
 
-getPath :: ByteString -> String
-getPath req = parseReq req !! 1
+echo :: ByteString -> ByteString
+echo path = fromMaybe "" $ stripPrefix "/echo/" path
 
 main :: IO ()
 main = do
@@ -45,10 +46,11 @@ main = do
         let path = getPath req
 
         let msg = case path of
+                _ | "/echo" `isPrefixOf` path -> "HTTP/1.1 200 OK\r\n\r\n" <> echo path <> "\r\n\r\n"
                 "/" -> "HTTP/1.1 200 OK\r\n\r\n"
                 _ -> "HTTP/1.1 404 Not Found\r\n\r\n"
 
-        print $ path ++ " " ++ msg
-        _ <- send clientSocket $ pack msg
+        print $ path <> " " <> msg
+        _ <- send clientSocket msg
 
         close clientSocket
