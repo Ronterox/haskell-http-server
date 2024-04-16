@@ -37,9 +37,6 @@ getField field content = strip $ fromMaybe "" $ stripPrefix field content
 echo :: UrlPath -> Content
 echo = getField "/echo/"
 
-fileContent :: UrlPath -> IO String
-fileContent path = readFile $ unpack $ getField "/files/" path
-
 userAgent :: Request -> Content
 userAgent req = findAgent $ lines req
   where
@@ -57,8 +54,8 @@ handleClient clientSocket directory files = do
 
     let path = getPath req
     msg <- case path of
-        _ | "/files" `isPrefixOf` path && filename `elem` files -> do
-            body <- fileContent $ pack directory <> path
+        _ | "/files" `isPrefixOf` path && directory ++ filename `elem` files -> do
+            body <- readFile $ directory <> filename
             return $ getOk "application/octet-stream" $ pack body
           where
             filename = unpack $ getField "/files/" path
@@ -67,9 +64,7 @@ handleClient clientSocket directory files = do
         "/" -> return "HTTP/1.1 200 OK\r\n\r\n"
         _ -> return "HTTP/1.1 404 Not Found\r\n\r\n"
 
-    print $ "GOT: " <> path <> ", Sended: " <> msg
     _ <- send clientSocket msg
-
     close clientSocket
 
 main :: IO ()
