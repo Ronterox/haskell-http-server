@@ -47,7 +47,8 @@ main = do
 
         let msg = case path of
                 _ | "/echo" `isPrefixOf` path -> "HTTP/1.1 200 OK\r\n\r\n" <> echo path <> "\r\n\r\n"
-                "/" -> "HTTP/1.1 200 OK\r\n\r\n"
+                "/user-agent" -> "HTTP/1.1 200 OK\r\n\r\nContent-Type: text/plain\r\n\r\n"
+                "/" -> "HTTP/1.1 200 OK\r\n\r\nContent-Type: text/plain\r\n\r\nHello, World!\r\n\r\n"
                 _ -> "HTTP/1.1 404 Not Found\r\n\r\n"
 
         print $ path <> " " <> msg
