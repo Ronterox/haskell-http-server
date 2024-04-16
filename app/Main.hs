@@ -3,7 +3,7 @@
 module Main (main) where
 
 import Control.Monad (forever)
-import Data.ByteString.Char8 (ByteString, isPrefixOf, length, lines, pack, putStrLn, stripPrefix, words)
+import Data.ByteString.Char8 (ByteString, isPrefixOf, length, lines, pack, putStrLn, strip, stripPrefix, words)
 import Data.Maybe (fromMaybe)
 import Network.Socket
 import Network.Socket.ByteString (recv, send)
@@ -11,10 +11,12 @@ import System.IO (BufferMode (..), hSetBuffering, stdout)
 import Prelude hiding (length, lines, putStrLn, words)
 
 getPath :: ByteString -> ByteString
-getPath req = words req !! 1
+getPath req
+    | length req > 1 = words req !! 1
+    | otherwise = "/"
 
 getField :: ByteString -> ByteString -> ByteString
-getField field content = fromMaybe "" $ strip $ stripPrefix field content
+getField field content = strip $ fromMaybe "" $ stripPrefix field content
 
 echo :: ByteString -> ByteString
 echo path = getField "/echo/" path
