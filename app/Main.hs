@@ -3,11 +3,17 @@
 module Main (main) where
 
 import Control.Monad (forever)
-import Data.ByteString.Char8 (pack, putStrLn)
+import Data.ByteString.Char8 (ByteString, pack, putStrLn, unpack)
 import Network.Socket
 import Network.Socket.ByteString (recv, send)
 import System.IO (BufferMode (..), hSetBuffering, stdout)
 import Prelude hiding (putStrLn)
+
+parseReq :: ByteString -> [String]
+parseReq req = words $ unpack req
+
+getPath :: ByteString -> String
+getPath req = parseReq req !! 1
 
 main :: IO ()
 main = do
@@ -35,7 +41,14 @@ main = do
         putStrLn $ "Accepted connection from " <> pack (show clientAddr) <> "."
         -- Handle the clientSocket as needed...
 
-        _ <- recv clientSocket 4096
-        _ <- send clientSocket "HTTP/1.1 200 OK\r\n\r\n"
+        req <- recv clientSocket 4096
+        let path = getPath req
+
+        let msg = case path of
+                "/" -> "HTTP/1.1 200 OK\r\n\r\n"
+                _ -> "HTTP/1.1 404 Not Found\r\n\r\n"
+
+        print $ path ++ " " ++ msg
+        _ <- send clientSocket $ pack msg
 
         close clientSocket
