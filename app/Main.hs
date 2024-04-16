@@ -49,8 +49,8 @@ main = do
         let path = getPath req
 
         let msg = case path of
-                _ | "/echo" `isPrefixOf` path -> "HTTP/1.1 200 OK\r\n\r\n" <> echo path <> "\r\n\r\n"
-                "/user-agent" -> "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nContent-Length: " <> pack (show $ length $ userAgent req) <> "\r\n\r\n" <> userAgent req <> "\r\n\r\n"
+                _ | "/echo" `isPrefixOf` path -> "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n" <> echo path <> "\r\n\r\n"
+                "/user-agent" -> "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: " <> pack (show $ length $ userAgent req) <> "\r\n\r\n" <> userAgent req <> "\r\n\r\n"
                 "/" -> "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello, World!\r\n\r\n"
                 _ -> "HTTP/1.1 404 Not Found\r\n\r\n"
 
