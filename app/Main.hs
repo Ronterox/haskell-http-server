@@ -3,18 +3,21 @@
 module Main (main) where
 
 import Control.Monad (forever)
-import Data.ByteString.Char8 (ByteString, isPrefixOf, pack, putStrLn, stripPrefix, words)
+import Data.ByteString.Char8 (ByteString, isPrefixOf, length, lines, pack, putStrLn, stripPrefix, words)
 import Data.Maybe (fromMaybe)
 import Network.Socket
 import Network.Socket.ByteString (recv, send)
 import System.IO (BufferMode (..), hSetBuffering, stdout)
-import Prelude hiding (putStrLn, words)
+import Prelude hiding (length, lines, putStrLn, words)
 
 getPath :: ByteString -> ByteString
 getPath req = words req !! 1
 
 echo :: ByteString -> ByteString
 echo path = fromMaybe "" $ stripPrefix "/echo/" path
+
+userAgent :: ByteString -> ByteString
+userAgent req = lines (fromMaybe "" $ stripPrefix "User-Agent: " req) !! 1
 
 main :: IO ()
 main = do
@@ -47,8 +50,8 @@ main = do
 
         let msg = case path of
                 _ | "/echo" `isPrefixOf` path -> "HTTP/1.1 200 OK\r\n\r\n" <> echo path <> "\r\n\r\n"
-                "/user-agent" -> "HTTP/1.1 200 OK\r\n\r\nContent-Type: text/plain\r\n\r\n"
-                "/" -> "HTTP/1.1 200 OK\r\n\r\nContent-Type: text/plain\r\n\r\nHello, World!\r\n\r\n"
+                "/user-agent" -> "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nContent-Length: " <> pack (show $ length $ userAgent req) <> "\r\n\r\n" <> userAgent req <> "\r\n\r\n"
+                "/" -> "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nHello, World!\r\n\r\n"
                 _ -> "HTTP/1.1 404 Not Found\r\n\r\n"
 
         print $ path <> " " <> msg
