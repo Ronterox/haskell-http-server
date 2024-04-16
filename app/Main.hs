@@ -13,11 +13,19 @@ import Prelude hiding (length, lines, putStrLn, words)
 getPath :: ByteString -> ByteString
 getPath req = words req !! 1
 
+getField :: ByteString -> ByteString -> ByteString
+getField field content = fromMaybe "" $ stripPrefix field content
+
 echo :: ByteString -> ByteString
-echo path = fromMaybe "" $ stripPrefix "/echo/" path
+echo path = getField "/echo/" path
 
 userAgent :: ByteString -> ByteString
-userAgent req = lines (fromMaybe "" $ stripPrefix "User-Agent: " req) !! 1
+userAgent req = findAgent $ lines req
+  where
+    findAgent [] = ""
+    findAgent (line : rest)
+        | "User-Agent:" `isPrefixOf` line = getField "User-Agent: " line
+        | otherwise = findAgent rest
 
 contentLength :: ByteString -> ByteString
 contentLength body = pack $ show $ length body
@@ -46,23 +54,23 @@ main = do
     forever $ do
         (clientSocket, clientAddr) <- accept serverSocket
         putStrLn $ "Accepted connection from " <> pack (show clientAddr) <> "."
-        -- Handle the clientSocket as needed...
 
+        -- Handle the clientSocket as needed...
         req <- recv clientSocket 4096
         let path = getPath req
-            okmsg = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: "
-            notFound = "HTTP/1.1 404 Not Found\r\n\r\n"
+            msgOk = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: "
+            msgNotFound = "HTTP/1.1 404 Not Found\r\n\r\n"
             eof = "\r\n\r\n"
 
         let msg = case path of
-                _ | "/echo" `isPrefixOf` path -> okmsg <> contentLength body <> eof <> body <> eof
+                _ | "/echo" `isPrefixOf` path -> msgOk <> contentLength body <> eof <> body <> eof
                   where
                     body = echo path
-                "/user-agent" -> okmsg <> contentLength agent <> eof <> agent <> eof
+                "/user-agent" -> msgOk <> contentLength agent <> eof <> agent <> eof
                   where
                     agent = userAgent req
-                "/" -> okmsg <> "13\r\n\r\nHello, World!\r\n\r\n"
-                _ -> notFound
+                "/" -> msgOk <> "13\r\n\r\nHello, World!\r\n\r\n"
+                _ -> msgNotFound
 
         print $ path <> " " <> msg
         _ <- send clientSocket msg
