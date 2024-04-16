@@ -68,7 +68,7 @@ handleClient clientSocket files = do
         "/" -> return "HTTP/1.1 200 OK\r\n\r\n"
         _ -> return "HTTP/1.1 404 Not Found\r\n\r\n"
 
-    print $ path <> " " <> msg
+    print $ "GOT: " <> path <> ", Sended: " <> msg
     _ <- send clientSocket msg
 
     close clientSocket
@@ -79,11 +79,17 @@ main = do
 
     args <- getArgs
     let directory = case args of
-            xs | "--directory" `elem` xs -> dropWhile (/= "--directory") xs !! 1
-            _ -> "."
+            xs
+                | "--directory" `elem` xs ->
+                    if last dirname == '/'
+                        then dirname
+                        else dirname <> "/"
+              where
+                dirname = dropWhile (/= "--directory") xs !! 1
+            _ -> "./"
 
     contents <- getDirectoryContents directory
-    files <- filterM doesFileExist contents
+    files <- filterM doesFileExist $ map (directory <>) contents
     print files
 
     let host = "127.0.0.1"
