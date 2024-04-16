@@ -51,15 +51,14 @@ userAgent req = findAgent $ lines req
 contentLength :: Content -> ContentLength
 contentLength body = pack $ show $ length body
 
-handleClient :: Socket -> [FilePath] -> IO ()
-handleClient clientSocket files = do
+handleClient :: Socket -> FilePath -> [FilePath] -> IO ()
+handleClient clientSocket directory files = do
     req <- recv clientSocket 4096
 
     let path = getPath req
-
     msg <- case path of
         _ | "/files" `isPrefixOf` path && filename `elem` files -> do
-            body <- fileContent path
+            body <- fileContent $ pack directory <> path
             return $ getOk "application/octet-stream" $ pack body
           where
             filename = unpack $ getField "/files/" path
@@ -112,4 +111,4 @@ main = do
         putStrLn $ "Accepted connection from " <> pack (show clientAddr) <> "."
 
         -- Handle the clientSocket as needed...
-        forkIO $ handleClient clientSocket files
+        forkIO $ handleClient clientSocket directory files
