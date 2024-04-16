@@ -3,53 +3,70 @@
 module Main (main) where
 
 import Control.Concurrent (forkIO)
-import Control.Monad (forever)
-import Data.ByteString.Char8 (ByteString, isPrefixOf, length, lines, pack, putStrLn, strip, stripPrefix, words)
+import Control.Monad (filterM, forever)
+import Data.ByteString.Char8 (ByteString, isPrefixOf, length, lines, pack, putStrLn, strip, stripPrefix, unpack, words)
 import Data.Maybe (fromMaybe)
 import Network.Socket
 import Network.Socket.ByteString (recv, send)
+import System.Directory (doesFileExist, getDirectoryContents)
+import System.Environment (getArgs)
 import System.IO (BufferMode (..), hSetBuffering, stdout)
 import Prelude hiding (length, lines, putStrLn, words)
 
-getPath :: ByteString -> ByteString
+type ContentType = ByteString
+type Request = ByteString
+type Field = ByteString
+type Content = ByteString
+type ContentLength = ByteString
+type Response = ByteString
+type UrlPath = ByteString
+
+getPath :: Request -> UrlPath
 getPath req
     | length req > 1 = words req !! 1
     | otherwise = "/"
 
-getField :: ByteString -> ByteString -> ByteString
+getOk :: ContentType -> Content -> Response
+getOk contentType content = "HTTP/1.1 200 OK\r\nContent-Type: " <> contentType <> "\r\nContent-Length: " <> contentLength content <> eof <> content <> eof
+  where
+    eof = "\r\n\r\n"
+
+getField :: Field -> Content -> Content
 getField field content = strip $ fromMaybe "" $ stripPrefix field content
 
-echo :: ByteString -> ByteString
-echo path = getField "/echo/" path
+echo :: UrlPath -> Content
+echo = getField "/echo/"
 
-userAgent :: ByteString -> ByteString
+fileContent :: UrlPath -> IO String
+fileContent path = readFile $ unpack $ getField "/files/" path
+
+userAgent :: Request -> Content
 userAgent req = findAgent $ lines req
   where
     findAgent [] = ""
     findAgent (line : rest)
-        | "User-Agent:" `isPrefixOf` line = getField "User-Agent: " line
+        | "User-Agent:" `isPrefixOf` line = getField "User-Agent:" line
         | otherwise = findAgent rest
 
-contentLength :: ByteString -> ByteString
+contentLength :: Content -> ContentLength
 contentLength body = pack $ show $ length body
 
-handleClient :: Socket -> IO ()
-handleClient clientSocket = do
+handleClient :: Socket -> [FilePath] -> IO ()
+handleClient clientSocket files = do
     req <- recv clientSocket 4096
-    let path = getPath req
-        msgOk = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: "
-        msgNotFound = "HTTP/1.1 404 Not Found\r\n\r\n"
-        eof = "\r\n\r\n"
 
-    let msg = case path of
-            _ | "/echo" `isPrefixOf` path -> msgOk <> contentLength body <> eof <> body <> eof
-              where
-                body = echo path
-            "/user-agent" -> msgOk <> contentLength agent <> eof <> agent <> eof
-              where
-                agent = userAgent req
-            "/" -> msgOk <> "13\r\n\r\nHello, World!\r\n\r\n"
-            _ -> msgNotFound
+    let path = getPath req
+
+    msg <- case path of
+        _ | "/files" `isPrefixOf` path && filename `elem` files -> do
+            body <- fileContent path
+            return $ getOk "application/octet-stream" $ pack body
+          where
+            filename = unpack $ getField "/files/" path
+        _ | "/echo" `isPrefixOf` path -> return $ getOk "text/plain" $ echo path
+        "/user-agent" -> return $ getOk "text/plain" $ userAgent req
+        "/" -> return "HTTP/1.1 200 OK\r\n\r\n"
+        _ -> return "HTTP/1.1 404 Not Found\r\n\r\n"
 
     print $ path <> " " <> msg
     _ <- send clientSocket msg
@@ -60,7 +77,14 @@ main :: IO ()
 main = do
     hSetBuffering stdout LineBuffering
 
-    putStrLn "Logs from your program will appear here"
+    args <- getArgs
+    let directory = case args of
+            xs | "--directory" `elem` xs -> dropWhile (/= "--directory") xs !! 1
+            _ -> "."
+
+    contents <- getDirectoryContents directory
+    files <- filterM doesFileExist contents
+    print files
 
     let host = "127.0.0.1"
         port = "4221"
@@ -82,4 +106,4 @@ main = do
         putStrLn $ "Accepted connection from " <> pack (show clientAddr) <> "."
 
         -- Handle the clientSocket as needed...
-        forkIO $ handleClient clientSocket
+        forkIO $ handleClient clientSocket files
