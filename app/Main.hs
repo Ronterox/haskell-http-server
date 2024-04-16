@@ -2,6 +2,7 @@
 
 module Main (main) where
 
+import Control.Concurrent (forkIO)
 import Control.Monad (forever)
 import Data.ByteString.Char8 (ByteString, isPrefixOf, length, lines, pack, putStrLn, strip, stripPrefix, words)
 import Data.Maybe (fromMaybe)
@@ -32,6 +33,29 @@ userAgent req = findAgent $ lines req
 contentLength :: ByteString -> ByteString
 contentLength body = pack $ show $ length body
 
+handleClient :: Socket -> IO ()
+handleClient clientSocket = do
+    req <- recv clientSocket 4096
+    let path = getPath req
+        msgOk = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: "
+        msgNotFound = "HTTP/1.1 404 Not Found\r\n\r\n"
+        eof = "\r\n\r\n"
+
+    let msg = case path of
+            _ | "/echo" `isPrefixOf` path -> msgOk <> contentLength body <> eof <> body <> eof
+              where
+                body = echo path
+            "/user-agent" -> msgOk <> contentLength agent <> eof <> agent <> eof
+              where
+                agent = userAgent req
+            "/" -> msgOk <> "13\r\n\r\nHello, World!\r\n\r\n"
+            _ -> msgNotFound
+
+    print $ path <> " " <> msg
+    _ <- send clientSocket msg
+
+    close clientSocket
+
 main :: IO ()
 main = do
     hSetBuffering stdout LineBuffering
@@ -58,23 +82,4 @@ main = do
         putStrLn $ "Accepted connection from " <> pack (show clientAddr) <> "."
 
         -- Handle the clientSocket as needed...
-        req <- recv clientSocket 4096
-        let path = getPath req
-            msgOk = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: "
-            msgNotFound = "HTTP/1.1 404 Not Found\r\n\r\n"
-            eof = "\r\n\r\n"
-
-        let msg = case path of
-                _ | "/echo" `isPrefixOf` path -> msgOk <> contentLength body <> eof <> body <> eof
-                  where
-                    body = echo path
-                "/user-agent" -> msgOk <> contentLength agent <> eof <> agent <> eof
-                  where
-                    agent = userAgent req
-                "/" -> msgOk <> "13\r\n\r\nHello, World!\r\n\r\n"
-                _ -> msgNotFound
-
-        print $ path <> " " <> msg
-        _ <- send clientSocket msg
-
-        close clientSocket
+        forkIO $ handleClient clientSocket
